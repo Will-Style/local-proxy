@@ -1,0 +1,39 @@
+version: "3.5"
+
+services:
+  nginx-proxy:
+    container_name: local-proxy
+    image: jwilder/nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      # 未定義のホスト名は下記で定義しているデフォルトサイトを表示する
+      DEFAULT_HOST: "default.local.localhost"
+    volumes:
+      # nginx-proxyのドキュメント通りの記述
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # mkcertで作成した証明書があるディレクトリをコンテナから読み込めるようにする
+      - ./certs:/etc/nginx/certs
+      # ローカル開発用に制御したいリバースプロキシーの設定
+      - ./conf/my-default.conf:/etc/nginx/conf.d/my-default.conf
+    networks:
+      - local-network
+    # 明示的に stop がされない限り、終了ステータスに関係なく常に再起動が行われる
+    restart: always
+  # デフォルトのサイトを立ち上げる。
+  default-site:
+    container_name: default-site
+    image: httpd
+    environment:
+      VIRTUAL_HOST: "default.local.localhost"
+      CERT_NAME: "_wildcard.local.localhost"
+      HTTPS_METHOD: "noredirect" # httpアクセスも許可したい場合はこれでリダイレクトを無効にする
+    volumes:
+      - ./htdocs:/usr/local/apache2/htdocs
+    networks:
+      - local-network
+    restart: always
+networks:
+  local-network:
+    name: local-network
